@@ -1,14 +1,18 @@
 package com.example.rixoro.matrixcam;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.annotation.IdRes;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.GridLayout;
 import android.widget.GridView;
@@ -17,7 +21,13 @@ import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.Toast;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 
 public class MainActivity extends AppCompatActivity {
@@ -35,6 +45,7 @@ public class MainActivity extends AppCompatActivity {
     private int matrixDimension;
     private RadioGroup dimens;
     private EditTextMatrixAdapter editTextMatrixAdapter;
+    private String photoFilename;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -114,7 +125,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void applyFilter(int w, int l, int[][] filter) {
-        Bitmap newImg = currentImage;
+        Bitmap newImg = currentImage.copy(Bitmap.Config.ARGB_8888, true);;
 
         int div = 0;
         for(int[] a:filter)
@@ -125,6 +136,7 @@ public class MainActivity extends AppCompatActivity {
 
         for(int i=0;i<l;i++){
             for(int j=0;j<w;j++){
+                int avg = 0;
                 int ravg = 0;
                 int gavg = 0;
                 int bavg = 0;
@@ -155,18 +167,25 @@ public class MainActivity extends AppCompatActivity {
 
                         int f = filter[x][y];
 
+                        int a = Color.alpha(p);
                         int r = Color.red(p);
                         int g = Color.green(p);
                         int b = Color.blue(p);
 
+                        avg += f*a;
                         ravg += f*r;
                         gavg += f*g;
                         bavg += f*b;
                     }
                 }
+                avg = avg/div;
                 ravg = ravg/div;
                 gavg = gavg/div;
                 bavg = bavg/div;
+                if(avg>255)
+                    avg = 255;
+                else if(avg<0)
+                    avg = 0;
                 if(ravg>255)
                     ravg = 255;
                 else if(ravg<0)
@@ -180,7 +199,7 @@ public class MainActivity extends AppCompatActivity {
                 else if(bavg<0)
                     bavg = 0;
 
-                newImg.setPixel(i, j, Color.rgb(ravg, gavg, bavg));
+                newImg.setPixel(i, j, Color.argb(avg, ravg, gavg, bavg));
                 oldImage = currentImage;
                 currentImage = newImg;
             }
@@ -189,6 +208,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void savePhoto(View view) {
+        File pictureFile = getOutputMediaFile();
+        if (pictureFile == null) {
+            Log.d("SAVE", "Error creating media file, check storage permissions: ");// e.getMessage());
+            return;
+        }
+        try {
+            FileOutputStream fos = new FileOutputStream(pictureFile);
+            currentImage.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+            //fos.flush();
+            fos.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            Log.d("SAVE", "File not found: " + e.getMessage());
+        } catch (IOException e) {
+            e.printStackTrace();
+            Log.d("SAVE", "Error accessing file: " + e.getMessage());
+        }
     }
 
     public void revertChanges(View view) {
@@ -201,7 +237,6 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Please select a matrix size.", Toast.LENGTH_SHORT).show();
         }
         else{
-//            Toast.makeText(this, "HERE", Toast.LENGTH_SHORT).show();
             int x = currentImage.getWidth();
             int y = currentImage.getHeight();
             int[][] filter = editTextMatrixAdapter.getFilter();
@@ -209,14 +244,44 @@ public class MainActivity extends AppCompatActivity {
             for(int[] ia:filter) {
                 for (int i:ia) {
                     String str = Integer.toString(i);
-                    Log.d("EDTXT", str);
-                    Toast.makeText(this, str, Toast.LENGTH_SHORT).show();
+//                    Log.d("EDTXT", str);
                 }
             }
 
-            applyFilter(x, y, filter);
+            applyFilter(y, x, filter);
             mImageView.setImageBitmap(currentImage);
 
         }
+    }
+
+    public File getOutputMediaFile() {
+        File mediaStorageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
+
+        // Create the storage directory if it does not exist
+        if (! mediaStorageDir.exists()){
+            if (! mediaStorageDir.mkdirs()){
+                return null;
+            }
+        }
+        // Create a media file name
+        String timeStamp = new SimpleDateFormat("ddMMyyyy_HHmm").format(new Date());
+        File mediaFile;
+        photoFilename ="MI_"+ timeStamp;
+
+        View viewGrp = getLayoutInflater().inflate(R.layout.save_photo_dialog, (ViewGroup) findViewById(R.id.main_activity), false);
+
+        final EditText edtxtname = (EditText) viewGrp.findViewById(R.id.edtxt_save_photo);
+        edtxtname.setText(photoFilename);
+        AlertDialog.Builder alertBuilder = new AlertDialog.Builder(this)
+                .setTitle("Save New Image").setView(viewGrp)
+                .setPositiveButton("Save", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        photoFilename = edtxtname.getText().toString() +".jpg";
+                    }
+                });
+        alertBuilder.show();
+        mediaFile = new File(mediaStorageDir.getPath() + File.separator + photoFilename);
+        return mediaFile;
     }
 }

@@ -56,7 +56,6 @@ public class EditTextMatrixAdapter extends BaseAdapter {
                     filter[i][j] = Integer.parseInt(str);
                 else
                     filter[i][j] = 0;
-            Toast.makeText(mContext, str, Toast.LENGTH_SHORT).show();
             }
         }
 
@@ -76,6 +75,7 @@ public class EditTextMatrixAdapter extends BaseAdapter {
             edtxt = (EditText) convertView;
         }
         edtxt.setId(position);
+        edtxt.setTextSize(15);
         edtxtValues.add(edtxt.getText().toString());
         edtxt.addTextChangedListener(new TextWatcher() {
             @Override
