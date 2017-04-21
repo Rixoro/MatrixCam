@@ -216,6 +216,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             FileOutputStream fos = new FileOutputStream(pictureFile);
             currentImage.compress(Bitmap.CompressFormat.JPEG, 90, fos);
+            MediaStore.Images.Media.insertImage(getContentResolver(), currentImage, null , null);
             //fos.flush();
             fos.close();
         } catch (FileNotFoundException e) {
